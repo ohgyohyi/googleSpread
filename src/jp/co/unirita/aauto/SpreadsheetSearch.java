@@ -53,7 +53,7 @@ public class SpreadsheetSearch {
     private static final URL SPREADSHEET_FEED_URL;
     // 固定
     private static final String memberListText = "C:\\WORK\\MorningDuty\\MemberList.txt";
-    
+
     private static SpreadsheetService service = null;
 
     static {
@@ -66,7 +66,7 @@ public class SpreadsheetSearch {
 
     /**
      * 認証処理
-     * 
+     *
      * @return
      * @throws Exception
      */
@@ -99,7 +99,7 @@ public class SpreadsheetSearch {
 
     /**
      * サービスの取得
-     * 
+     *
      * @return
      * @throws Exception
      */
@@ -147,7 +147,7 @@ public class SpreadsheetSearch {
         System.out.println("findAllSpreadsheets out");
         return spreadsheets;
     }
-    
+
     /**
      * スプレッドシート名で検索
      * @param service
@@ -167,7 +167,7 @@ public class SpreadsheetSearch {
         System.out.println("findSpreadsheetByName out");
         return ssEntry;
       }
-    
+
     /**
      * ワークシート名で検索
      * @param service スプレッドサービス
@@ -188,7 +188,7 @@ public class SpreadsheetSearch {
         System.out.println("findWorksheetByName out");
         return wsEntry;
      }
-    
+
     /**
      * 範囲指定クエリー
      * @param minrow
@@ -204,55 +204,60 @@ public class SpreadsheetSearch {
                 .replaceAll("MINCOL", String.valueOf(mincol))
                 .replaceAll("MAXCOL", String.valueOf(maxcol));
     }
-    
+
     /**
-     * 
+     *
      * @return
-     * @throws ServiceException 
-     * @throws IOException 
+     * @throws ServiceException
+     * @throws IOException
      */
     private static String getCellPlainText(WorksheetEntry worksheetEntry, String cellRange) throws IOException, ServiceException {
-        
+
         CellQuery cellQuery = new CellQuery(worksheetEntry.getCellFeedUrl());
-        
+
         cellQuery.setRange(cellRange);
         // 空セルも返すようにする
-        cellQuery.setReturnEmpty(true); 
+        cellQuery.setReturnEmpty(true);
         CellFeed cellFeed = service.query(cellQuery, CellFeed.class);
-        
+
         CellEntry cellEntry;
         cellEntry = cellFeed.getEntries().get(0);
-        
-        return cellEntry.getPlainTextContent().toString();        
+
+        return cellEntry.getPlainTextContent().toString();
     }
-    
+
     /**
      * セル番号計算
      * @param worksheetEntry
      * @param cellRange 例："B2:B12"
+     * @param diff 日の差異
      * @return
      * @throws IOException
      * @throws ServiceException
      */
-    private static String getTargetCellNo(WorksheetEntry worksheetEntry, String cellRange) throws IOException, ServiceException {
+    private static String getTargetCellNo(WorksheetEntry worksheetEntry, String cellRange, int diff) throws IOException, ServiceException {
         final String MONTH_PATTERN = "00";
         String targetCellNo = "A1";
         DecimalFormat format = new DecimalFormat(MONTH_PATTERN);
         Calendar nowCal = Calendar.getInstance();
+        nowCal.add(Calendar.DAY_OF_YEAR, diff);
         String month = String.valueOf(nowCal.get(Calendar.YEAR)) + "/"
                 + format.format(nowCal.get(Calendar.MONTH) + 1);
         String row = nowCal.get(Calendar.DAY_OF_MONTH) + 3 + "";
-        
+
+
+        System.out.println("YYYY/MM/DD : " + (month + "/" + format.format(nowCal.get(Calendar.DAY_OF_MONTH))));
+
         String[] cells = cellRange.split(":");
         int columnF = Integer.parseInt(String.valueOf(String.valueOf(cells[0].charAt(0)).getBytes("US-ASCII")[0]));
         int columnT = Integer.parseInt(String.valueOf(String.valueOf(cells[1].charAt(0)).getBytes("US-ASCII")[0]));
         String rowFT = cells[0].substring(1); // 列はA～Z固定
-        
+
         for (int idx = columnF; idx <= columnT; idx++) {
-            
+
             String cellNo = new String(int2Byte(idx)).trim() + rowFT;
             String monthCell = getCellPlainText(worksheetEntry, cellNo);
-            
+
             if (monthCell != null && month.equals(monthCell)) {
                 // 今月
                 targetCellNo = new String(int2Byte(idx + 1)).trim() + row;
@@ -261,53 +266,57 @@ public class SpreadsheetSearch {
         }
         return targetCellNo;
     }
-    
+
     /**
-     * 
+     *
      * @param args スプレッド名、シート名、タイトル範囲
-     * 
+     *
      * @throws Exception
      */
     public static void main(String[] args) throws Exception {
 
         System.out.println("main start");
         String member = "";
+        int memberNo = 0;
 
         service = getService();
-        
+
         String spreadsheetName = "プロダクト開発部朝礼当番_20150501";
         String worksheetName = "2016年度上期";
         String monthRange = "B3:M3";
-        
+        int diff = 0;
+
         spreadsheetName = args[0];
         worksheetName = args[1];
         monthRange = args[2];
+        diff = Integer.parseInt(args[3]);
         System.out.println("spreadsheetName: " + spreadsheetName);
         System.out.println("worksheetName: " + worksheetName);
         System.out.println("monthRange: " + monthRange);
-        
+
         SpreadsheetEntry spreadsheetEntry = findSpreadsheetByName(service, spreadsheetName);
         WorksheetEntry worksheetEntry = findWorksheetByName(service, spreadsheetEntry, worksheetName);
-        
+
+        for (int i = 0; i <= diff; i++ ) {
         if (worksheetEntry != null) {
-            
-            String targetCellNo = getTargetCellNo(worksheetEntry, monthRange);            
+
+            String targetCellNo = getTargetCellNo(worksheetEntry, monthRange, i);
             member = getCellPlainText(worksheetEntry, targetCellNo);
-            
+
             if (member.indexOf("→") >= 0 && member.split("→").length > 1) {
                 member = member.split("→")[member.split("→").length - 1];
             }
             System.out.println("member : " + member);
-            
         }
-        
-        int memberNo = Integer.parseInt(getMemberNo(trim(member)));
-        
+
+        memberNo = Integer.parseInt(getMemberNo(trim(member)));
+        }
+
         System.out.println("main end");
-        
+
         System.exit(memberNo);
     }
-    
+
     /**
      * int型から byte 型配列 に変換
      * @param value
@@ -317,7 +326,7 @@ public class SpreadsheetSearch {
         return ByteBuffer.allocate(Integer.SIZE / Byte.SIZE).putInt(value)
                 .array();
     }
-    
+
     /**
      * 社員番号取得
      * @param memberName
@@ -325,21 +334,21 @@ public class SpreadsheetSearch {
      */
     private static String getMemberNo(String memberName) {
 
-        String memberNo = "10000"; 
+        String memberNo = "10000";
         try {
             FileInputStream fileInputStream = new FileInputStream(memberListText);
-            InputStreamReader inputStreamReader = new InputStreamReader(fileInputStream, "SJIS");
+            InputStreamReader inputStreamReader = new InputStreamReader(fileInputStream, "UTF8");
             BufferedReader br = new BufferedReader(inputStreamReader);
-            
+
             String str = br.readLine();
             // 括弧を削除
             memberName = replaceBrackets(memberName);
-            
+
             while (str != null) {
                 // 括弧を削除
                 str = replaceBrackets(str);
                 if (str.indexOf(memberName) > 0) {
-                    
+
                     memberNo = str.split(",")[0];
                     break;
                 }
@@ -358,7 +367,7 @@ public class SpreadsheetSearch {
         }
         return memberNo;
     }
-    
+
     private static final String SPACE_CHAR_HALF = " ";
     private static final String SPACE_CHAR_WIDE = "　";
     /**
@@ -367,10 +376,10 @@ public class SpreadsheetSearch {
      * @return
      */
     private static String trim(String value) {
-        
+
         return ltrim(rtrim(value));
     }
-    
+
     /**
      * 文字列の前の全角スペース及び半角スペースを除去
      *
@@ -388,7 +397,7 @@ public class SpreadsheetSearch {
             break;
         } else {
             pos = i + 1;
-        } 
+        }
       }
 
       if (pos > 0) {
@@ -424,19 +433,19 @@ public class SpreadsheetSearch {
         return value;
       }
     }
-    
+
     /**
      * 名前中の全角、半角括弧を削除
      * @param name
      * @return
      */
     private static String replaceBrackets(String name) {
-        
+
         name = name.replace("(", ""); // 半角
         name = name.replace(")", ""); // 半角
         name = name.replace("（", "");// 全角
         name = name.replace("）", "");// 全角
-        
+
         return name;
     }
 }

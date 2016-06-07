@@ -230,18 +230,23 @@ public class googleCalender {
      * セル番号計算
      * @param worksheetEntry
      * @param cellRange 例："B2:B12"
+     * @param diff 日の差異
      * @return
      * @throws IOException
      * @throws ServiceException
      */
-    private static String getTargetCellNo(WorksheetEntry worksheetEntry, String cellRange) throws IOException, ServiceException {
+    private static String getTargetCellNo(WorksheetEntry worksheetEntry, String cellRange, int diff) throws IOException, ServiceException {
         final String MONTH_PATTERN = "00";
         String targetCellNo = "A1";
         DecimalFormat format = new DecimalFormat(MONTH_PATTERN);
         Calendar nowCal = Calendar.getInstance();
+        nowCal.add(Calendar.DAY_OF_YEAR, diff);
         String month = String.valueOf(nowCal.get(Calendar.YEAR)) + "/"
                 + format.format(nowCal.get(Calendar.MONTH) + 1);
         String row = nowCal.get(Calendar.DAY_OF_MONTH) + 3 + "";
+
+
+        System.out.println("YYYY/MM/DD : " + (month + "/" + format.format(nowCal.get(Calendar.DAY_OF_MONTH))));
 
         String[] cells = cellRange.split(":");
         int columnF = Integer.parseInt(String.valueOf(String.valueOf(cells[0].charAt(0)).getBytes("US-ASCII")[0]));
@@ -272,16 +277,19 @@ public class googleCalender {
 
         System.out.println("main start");
         String member = "";
+        int memberNo = 0;
 
         service = getService();
 
         String spreadsheetName = "プロダクト開発部朝礼当番_20150501";
         String worksheetName = "2016年度上期";
         String monthRange = "B3:M3";
+        int diff = 0;
 
         spreadsheetName = args[0];
         worksheetName = args[1];
         monthRange = args[2];
+        diff = Integer.parseInt(args[3]);
         System.out.println("spreadsheetName: " + spreadsheetName);
         System.out.println("worksheetName: " + worksheetName);
         System.out.println("monthRange: " + monthRange);
@@ -289,19 +297,20 @@ public class googleCalender {
         SpreadsheetEntry spreadsheetEntry = findSpreadsheetByName(service, spreadsheetName);
         WorksheetEntry worksheetEntry = findWorksheetByName(service, spreadsheetEntry, worksheetName);
 
+        for (int i = 0; i <= diff; i++ ) {
         if (worksheetEntry != null) {
 
-            String targetCellNo = getTargetCellNo(worksheetEntry, monthRange);
+            String targetCellNo = getTargetCellNo(worksheetEntry, monthRange, i);
             member = getCellPlainText(worksheetEntry, targetCellNo);
 
             if (member.indexOf("→") >= 0 && member.split("→").length > 1) {
                 member = member.split("→")[member.split("→").length - 1];
             }
             System.out.println("member : " + member);
-
         }
 
-        int memberNo = Integer.parseInt(getMemberNo(trim(member)));
+        memberNo = Integer.parseInt(getMemberNo(trim(member)));
+        }
 
         System.out.println("main end");
 
@@ -328,7 +337,7 @@ public class googleCalender {
         String memberNo = "10000";
         try {
             FileInputStream fileInputStream = new FileInputStream(memberListText);
-            InputStreamReader inputStreamReader = new InputStreamReader(fileInputStream, "SJIS");
+            InputStreamReader inputStreamReader = new InputStreamReader(fileInputStream, "UTF8");
             BufferedReader br = new BufferedReader(inputStreamReader);
 
             String str = br.readLine();
